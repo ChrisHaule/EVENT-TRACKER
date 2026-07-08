@@ -5,9 +5,9 @@ from io import BytesIO
 from streamlit_qrcode_scanner import qrcode_scanner
 from datetime import datetime
 
-st.set_page_config(page_title="Event Guest Tracker", layout="centered")
+st.set_page_config(page_title="CHRIS EVENTS ORGINSER", layout="centered")
 
-st.title("🎉 Event Guest Tracker & Scanner")
+st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT ")
 
 # Temporary smartphone storage setup
 if "guest_list" not in st.session_state:
