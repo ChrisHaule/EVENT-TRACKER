@@ -1,3 +1,4 @@
 streamlit
 qrcode
 streamlit-qrcode-scanner
+st-gsheets-connection
