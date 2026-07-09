@@ -1,16 +1,60 @@
 import streamlit as st
 import pandas as pd
-import qrcode
-from io import BytesIO
-from streamlit_qrcode_scanner import qrcode_scanner
-from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
+from streamlit_qrcode_scanner import st_qrcode_scanner
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-st.set_page_config(page_title="Chris Events Management", layout="centered")
+# Set up page config
+st.set_page_config(page_title="Event Management System", layout="centered")
 
-st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT")
+def send_invite_email(guest_name, guest_email):
+    # Retrieve email configurations from secrets
+    sender = st.secrets["email"]["sender_email"]
+    password = st.secrets["email"]["sender_password"]
+    
+    # Generate unique query confirmation URLs
+    app_url = "https://chris-haule-event-tracker-app-r-daktxpqmmyvhlv5qsiarxi.streamlit.app"
+    yes_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=yes"
+    no_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=no"
+    
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Exclusive Invitation for {guest_name}"
+    msg["From"] = f"Event Management <{sender}>"
+    msg["To"] = guest_email
 
-# Establish connection to your Google Sheet database
+    # HTML Email Design with styled buttons
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 20px; text-align: center;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #1e1e1e; padding: 30px; border-radius: 10px; border: 1px solid #333;">
+            <h2 style="color: #ffffff; margin-bottom: 20px;">Hello {guest_name} ,</h2>
+            <p style="font-size: 16px; color: #b3b3b3; line-height: 1.5;">You are cordially invited to our event. Please let us know if you will be joining us by choosing an option below:</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="{yes_url}" style="background-color: #198754; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; margin-right: 15px; display: inline-block;">👍 I'm Coming</a>
+                <a href="{no_url}" style="background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">👎 Can't Make It</a>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+            <p style="font-size: 14px; color: #777;">We look forward to hearing from you!</p>
+            <p style="font-size: 11px; color: #555; margin-top: 10px;">Sent via Event Management System.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    msg.attach(MIMEText(html_content, "html"))
+    
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, password)
+            server.sendmail(sender, guest_email, msg.as_string())
+    except Exception as e:
+        st.error(f"Failed to email {guest_name}: {e}")
+
+# Initialize Spreadsheet Connection
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- HANDLE INBOUND GUEST CONFIRMATIONS ---
@@ -21,7 +65,7 @@ if "guest" in query_params and "action" in query_params:
     guest_name = query_params["guest"]
     action_choice = query_params["action"]
     status_text = "Attending" if action_choice == "yes" else "Declined"
-    is_guest_view = True  # Hide everything else for them!
+    is_guest_view = True  # Hide the admin panel for them
     
     try:
         df = conn.read(worksheet="Sheet1", ttl=0)
@@ -32,15 +76,28 @@ if "guest" in query_params and "action" in query_params:
             if not matched_rows.empty:
                 row_idx = matched_rows.index[0]
                 
-                # Connect using your existing 'spreadsheet' secret key cleanly
+                # Fetch details using existing secrets structure
                 gc = conn.client
                 spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                 sh = gc.open_by_url(spreadsheet_url)
                 worksheet = sh.worksheet("Sheet1")
                 
-                # Column 5 is 'Confirmation' (E)
+                # Update Column 5 ('Confirmation')
                 worksheet.update_cell(row_idx + 2, 5, status_text)
                 
+                # Render standalone clean confirmation UI
+                st.balloons()
+                st.markdown("<h1 style='text-align: center;'>✨ Response Recorded! ✨</h1>", unsafe_allow_html=True)
+                st.markdown("---")
+                if action_choice == "yes":
+                    st.success(f"### 🎉 Thank you, {guest_name}!\nYour response has been recorded as **Attending**. We can't wait to celebrate with you!")
+                else:
+                    st.info(f"### ✉️ Thank you for letting us know, {guest_name}.\nYour response has been recorded as **Declined**. You will be missed!")
+            else:
+                st.error("Guest name not found in sheet records.")
+    except Exception as e:
+        st.error(f"Error logging response automatically: {e}")
+
 # --- ONLY SHOW THE MANAGEMENT APP IF IT IS NOT A GUEST LINK ---
 if not is_guest_view:
     st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT")
@@ -72,7 +129,7 @@ if not is_guest_view:
                     sh = gc.open_by_url(spreadsheet_url)
                     worksheet = sh.worksheet("Sheet1")
                     
-                    # Append new row: Name, Status, Check-in Time, Payment, Confirmation, Email
+                    # Append row to Google Sheets
                     worksheet.append_row([new_guest.strip(), "Not entered", "", "", "", new_email.strip()])
                     st.success(f"Added {new_guest} to the guest list!")
                     st.rerun()
@@ -112,7 +169,6 @@ if not is_guest_view:
                             sh = gc.open_by_url(spreadsheet_url)
                             worksheet = sh.worksheet("Sheet1")
                             
-                            # Row indices in gspread are 1-based, and headers take row 1
                             worksheet.update_cell(row_idx + 2, 2, "Arrived")
                             worksheet.update_cell(row_idx + 2, 3, now_str)
                             
@@ -159,4 +215,3 @@ if not is_guest_view:
                     
             except Exception as e:
                 st.error(f"Failed to broadcast invites: {e}")
-
