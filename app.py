@@ -204,7 +204,7 @@ if not df_guests.empty:
         with col2:
             st.image(qr_url, caption=f"Scan Ticket for {selected_guest}", use_container_width=True)
             st.info(f"💡 Tip: You can long-press the QR code to save it or send it to {selected_guest}!")
- else:
+else:
     st.warning("No guests found in the directory yet to generate tickets for.")
 
         # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
