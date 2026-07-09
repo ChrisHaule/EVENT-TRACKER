@@ -12,15 +12,18 @@ st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT")
 
 # Establish connection to your Google Sheet database
 conn = st.connection("gsheets", type=GSheetsConnection)
+
 # --- HANDLE INBOUND GUEST CONFIRMATIONS ---
 query_params = st.query_params
+is_guest_view = False  # Track if a guest is using the link
 
 if "guest" in query_params and "action" in query_params:
     guest_name = query_params["guest"]
     action_choice = query_params["action"]
     status_text = "Attending" if action_choice == "yes" else "Declined"
+    is_guest_view = True  # Hide everything else for them!
+    
     try:
-        # Read the latest data
         df = conn.read(worksheet="Sheet1", ttl=0)
         df.columns = df.columns.str.strip()
         
@@ -29,18 +32,32 @@ if "guest" in query_params and "action" in query_params:
             if not matched_rows.empty:
                 row_idx = matched_rows.index[0]
                 
-                # Correctly grab the underlying gspread client and URL
+                # Connect using your existing 'spreadsheet' secret key cleanly
                 gc = conn.client
-                spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
+                spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                 sh = gc.open_by_url(spreadsheet_url)
                 worksheet = sh.worksheet("Sheet1")
                 
                 # Column 5 is 'Confirmation' (E)
                 worksheet.update_cell(row_idx + 2, 5, status_text)
                 
+                # Show ONLY a clean RSVP confirmation page to the guest
+                st.balloons()
+                st.markdown("<h1 style='text-align: center;'>✨ Response Recorded! ✨</h1>", unsafe_allow_html=True)
+                st.markdown("---")
                 if action_choice == "yes":
-                    st.success(f"🎉 Thank you, {guest_name}! Your response has been recorded as **Attending**.")
+                    st.success(f"### 🎉 Thank you, {guest_name}!\nYour response has been recorded as **Attending**. We can't wait to celebrate with you!")
                 else:
+                    st.info(f"### ✉️ Thank you for letting us know, {guest_name}.\nYour response has been recorded as **Declined**. You will be missed!")
+            else:
+                st.error("Guest name not found in sheet records.")
+    except Exception as e:
+        st.error(f"Error logging response automatically: {e}")
+
+# --- ONLY SHOW THE MANAGEMENT APP IF IT IS NOT A GUEST LINK ---
+if not is_guest_view:
+    st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT")
+
                     st.info(f"✉️ Thank you, {guest_name}. Your response has been recorded as **Declined**.")
                 
                 st.rerun()
