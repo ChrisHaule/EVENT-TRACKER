@@ -189,6 +189,23 @@ if not is_guest_view:
         # --- SECTION 3: GUEST LIST DIRECTORY ---
         st.subheader("📋 Live Guest Directory")
         st.dataframe(df_guests, use_container_width=True)
+st.markdown("---")
+st.subheader("🎫 Generate Guest QR Ticket")
+
+if not df_guests.empty:
+    guest_list = df_guests["Guest Name"].tolist()
+    selected_guest = st.selectbox("Select a guest to view their QR code ticket:", guest_list)
+    
+    if selected_guest:
+        encoded_name = selected_guest.replace(" ", "%20")
+        qr_url = f"https://quickchart.io/qr?text={encoded_name}&size=300"
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.image(qr_url, caption=f"Scan Ticket for {selected_guest}", use_container_width=True)
+            st.info(f"💡 Tip: You can long-press the QR code to save it or send it to {selected_guest}!")
+else:
+    st.warning("No guests found in the directory yet to generate tickets for.")
 
         # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
         st.markdown("---")
