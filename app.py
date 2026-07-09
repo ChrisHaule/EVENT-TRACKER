@@ -19,16 +19,24 @@ if "guest" in query_params and "action" in query_params:
     guest_name = query_params["guest"]
     action_choice = query_params["action"]
     status_text = "Attending" if action_choice == "yes" else "Declined"
-    
     try:
+        # Read the latest data
         df = conn.read(worksheet="Sheet1", ttl=0)
+        df.columns = df.columns.str.strip()
         
         if "Guest Name" in df.columns:
             matched_rows = df[df["Guest Name"] == guest_name]
             if not matched_rows.empty:
                 row_idx = matched_rows.index[0]
-                client = conn.client
-                client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet_id"]).sheet1.update_cell(row_idx + 2, 5, status_text)
+                
+                # Correctly grab the underlying gspread client and URL
+                gc = conn.client
+                spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
+                sh = gc.open_by_url(spreadsheet_url)
+                worksheet = sh.worksheet("Sheet1")
+                
+                # Column 5 is 'Confirmation' (E)
+                worksheet.update_cell(row_idx + 2, 5, status_text)
                 
                 if action_choice == "yes":
                     st.success(f"🎉 Thank you, {guest_name}! Your response has been recorded as **Attending**.")
@@ -40,7 +48,7 @@ if "guest" in query_params and "action" in query_params:
                 st.error("Guest name not found in sheet records.")
     except Exception as e:
         st.error(f"Error logging response automatically: {e}")
-
+  
 # Read the latest spreadsheet data live
 @st.fragment
 def load_data():
