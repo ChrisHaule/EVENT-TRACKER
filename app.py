@@ -163,20 +163,18 @@ st.write("Click below to automatically email confirmation links to all pending g
 if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
     try:
         df_guests = conn.read(worksheet="Sheet1", ttl=0)
-        
-        # Clean up headers by removing any accidental hidden spaces
         df_guests.columns = df_guests.columns.str.strip()
         
-        sent_count = 0
+        # This will show us exactly what columns Python reads!
+        st.warning(f"Python sees these columns: {list(df_guests.columns)}")
         
+        sent_count = 0
         for idx, row in df_guests.iterrows():
             name = row.get("Guest Name")
             email = row.get("Email")
             confirmation = row.get("Confirmation")
             
-            # Check if email exists and is valid
             if email and str(email).strip() != "" and str(email).lower() != "none":
-                # Check if they haven't responded yet
                 if not confirmation or str(confirmation).strip() == "" or str(confirmation).lower() == "none":
                     send_invite_email(name, str(email).strip())
                     sent_count += 1
@@ -184,8 +182,7 @@ if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
         if sent_count > 0:
             st.success(f"Successfully broadcasted {sent_count} invitations!")
         else:
-            st.info("No pending guests found with an email address. Double-check your column names in the sheet!")
+            st.info("No pending guests found with an email address.")
             
     except Exception as e:
         st.error(f"Failed to broadcast invites: {e}")
-
