@@ -15,8 +15,8 @@ def send_invite_email(guest_name, guest_email):
     password = st.secrets["email"]["sender_password"]
     
       app_url = st.secrets["email"]["base_url"]
-  yes_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=yes"
-  no_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=no"
+      yes_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=yes"
+      no_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=no"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Exclusive Invitation for {guest_name}"
