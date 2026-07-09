@@ -71,7 +71,8 @@ if "guest" in query_params and "action" in query_params:
             if not matched_rows.empty:
                 row_idx = matched_rows.index[0]
                 
-                gc = conn.client
+                # FIX APPLIED HERE: Added ._client to access open_by_url correctly
+                gc = conn.client._client
                 spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                 sh = gc.open_by_url(spreadsheet_url)
                 worksheet = sh.worksheet("Sheet1")
@@ -116,7 +117,8 @@ if not is_guest_view:
         if st.button("Add to List"):
             if new_guest.strip() != "":
                 try:
-                    gc = conn.client
+                    # FIX APPLIED HERE: Added ._client to access open_by_url correctly
+                    gc = conn.client._client
                     spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                     sh = gc.open_by_url(spreadsheet_url)
                     worksheet = sh.worksheet("Sheet1")
@@ -164,7 +166,8 @@ if not is_guest_view:
                                 from datetime import datetime
                                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                gc = conn.client
+                                # FIX APPLIED HERE: Added ._client to access open_by_url correctly
+                                gc = conn.client._client
                                 spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                                 sh = gc.open_by_url(spreadsheet_url)
                                 worksheet = sh.worksheet("Sheet1")
@@ -178,7 +181,7 @@ if not is_guest_view:
                         else:
                             st.error(f"❌ Error: '{guest_name}' is not on the guest list.")
                 else:
-                    st.warning("🤖 Couldn't clear a sharp QR code reading. Try holding the ticket closer/steadier and try again!")
+                    st.warning("🤖 Couldn't catch a sharp QR code reading. Hold it steady!")
             except Exception as e:
                 st.error(f"Camera tracking parsing issue: {e}")
 
