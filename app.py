@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import cv2
 from streamlit_gsheets import GSheetsConnection
-from streamlit_qrcode_scanner import st_qrcode_scanner
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -10,11 +11,9 @@ from email.mime.multipart import MIMEMultipart
 st.set_page_config(page_title="Event Management System", layout="centered")
 
 def send_invite_email(guest_name, guest_email):
-    # Retrieve email configurations from secrets
     sender = st.secrets["email"]["sender_email"]
     password = st.secrets["email"]["sender_password"]
     
-    # Generate unique query confirmation URLs
     app_url = "https://chris-haule-event-tracker-app-r-daktxpqmmyvhlv5qsiarxi.streamlit.app"
     yes_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=yes"
     no_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=no"
@@ -24,27 +23,23 @@ def send_invite_email(guest_name, guest_email):
     msg["From"] = f"Event Management <{sender}>"
     msg["To"] = guest_email
 
-    # HTML Email Design with styled buttons
     html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 20px; text-align: center;">
         <div style="max-width: 500px; margin: 0 auto; background-color: #1e1e1e; padding: 30px; border-radius: 10px; border: 1px solid #333;">
-            <h2 style="color: #ffffff; margin-bottom: 20px;">Hello {guest_name} ,</h2>
+            <h2 style="color: #ffffff; margin-bottom: 20px;">Hello {guest_name},</h2>
             <p style="font-size: 16px; color: #b3b3b3; line-height: 1.5;">You are cordially invited to our event. Please let us know if you will be joining us by choosing an option below:</p>
             
             <div style="margin: 30px 0;">
                 <a href="{yes_url}" style="background-color: #198754; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; margin-right: 15px; display: inline-block;">👍 I'm Coming</a>
                 <a href="{no_url}" style="background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">👎 Can't Make It</a>
             </div>
-            
             <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
             <p style="font-size: 14px; color: #777;">We look forward to hearing from you!</p>
-            <p style="font-size: 11px; color: #555; margin-top: 10px;">Sent via Event Management System.</p>
         </div>
     </body>
     </html>
     """
-    
     msg.attach(MIMEText(html_content, "html"))
     
     try:
@@ -76,23 +71,20 @@ if "guest" in query_params and "action" in query_params:
             if not matched_rows.empty:
                 row_idx = matched_rows.index[0]
                 
-                # Fetch details using existing secrets structure
                 gc = conn.client
                 spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
                 sh = gc.open_by_url(spreadsheet_url)
                 worksheet = sh.worksheet("Sheet1")
                 
-                # Update Column 5 ('Confirmation')
                 worksheet.update_cell(row_idx + 2, 5, status_text)
                 
-                # Render standalone clean confirmation UI
                 st.balloons()
                 st.markdown("<h1 style='text-align: center;'>✨ Response Recorded! ✨</h1>", unsafe_allow_html=True)
                 st.markdown("---")
                 if action_choice == "yes":
-                    st.success(f"### 🎉 Thank you, {guest_name}!\nYour response has been recorded as **Attending**. We can't wait to celebrate with you!")
+                    st.success(f"### 🎉 Thank you, {guest_name}!\nYour response has been recorded as **Attending**.")
                 else:
-                    st.info(f"### ✉️ Thank you for letting us know, {guest_name}.\nYour response has been recorded as **Declined**. You will be missed!")
+                    st.info(f"### ✉️ Thank you for letting us know, {guest_name}.\nYour response has been recorded as **Declined**.")
             else:
                 st.error("Guest name not found in sheet records.")
     except Exception as e:
@@ -129,7 +121,6 @@ if not is_guest_view:
                     sh = gc.open_by_url(spreadsheet_url)
                     worksheet = sh.worksheet("Sheet1")
                     
-                    # Append row to Google Sheets
                     worksheet.append_row([new_guest.strip(), "Not entered", "", "", "", new_email.strip()])
                     st.success(f"Added {new_guest} to the guest list!")
                     st.rerun()
@@ -140,47 +131,56 @@ if not is_guest_view:
 
         st.markdown("---")
 
-        # --- SECTION 2: SCAN QR CODE ---
+        # --- SECTION 2: SCAN QR CODE (NATIVE CAMERA INTERFACE) ---
         st.subheader("📷 Scan QR Code")
-        st.write("Grant camera permission if prompted, then hold up the ticket:")
+        st.write("Take a picture of the ticket's QR code below:")
 
-        qrcode = st_qrcode_scanner(key="qr_scanner")
+        camera_image = st.camera_input("Scan Ticket")
 
-        if qrcode:
-            st.info(f"Detected QR Code Data: {qrcode}")
-            guest_name = qrcode.strip()
-            
-            if "Guest Name" in df_guests.columns:
-                matched_rows = df_guests[df_guests["Guest Name"].str.strip().str.lower() == guest_name.lower()]
+        if camera_image is not None:
+            try:
+                # Convert camera bytes into a computer vision image array
+                file_bytes = np.asarray(bytearray(camera_image.read()), dtype=np.uint8)
+                opencv_img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
                 
-                if not matched_rows.empty:
-                    row_idx = matched_rows.index[0]
-                    current_status = matched_rows.iloc[0]["Status"]
+                # Detect and decode QR code
+                detector = cv2.QRCodeDetector()
+                qrcode_data, _, _ = detector.detectAndDecode(opencv_img)
+                
+                if qrcode_data:
+                    guest_name = qrcode_data.strip()
+                    st.info(f"Detected QR Code Data: {guest_name}")
                     
-                    if current_status == "Arrived":
-                        st.warning(f"⚠️ {guest_name} has ALREADY checked in!")
-                    else:
-                        try:
-                            from datetime import datetime
-                            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    if "Guest Name" in df_guests.columns:
+                        matched_rows = df_guests[df_guests["Guest Name"].str.strip().str.lower() == guest_name.lower()]
+                        
+                        if not matched_rows.empty:
+                            row_idx = matched_rows.index[0]
+                            current_status = matched_rows.iloc[0]["Status"]
                             
-                            gc = conn.client
-                            spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-                            sh = gc.open_by_url(spreadsheet_url)
-                            worksheet = sh.worksheet("Sheet1")
-                            
-                            worksheet.update_cell(row_idx + 2, 2, "Arrived")
-                            worksheet.update_cell(row_idx + 2, 3, now_str)
-                            
-                            st.success(f"✅ Success! {guest_name} checked in at {now_str}")
-                            st.balloons()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Failed to update spreadsheet: {e}")
+                            if current_status == "Arrived":
+                                st.warning(f"⚠️ {guest_name} has ALREADY checked in!")
+                            else:
+                                from datetime import datetime
+                                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                gc = conn.client
+                                spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+                                sh = gc.open_by_url(spreadsheet_url)
+                                worksheet = sh.worksheet("Sheet1")
+                                
+                                worksheet.update_cell(row_idx + 2, 2, "Arrived")
+                                worksheet.update_cell(row_idx + 2, 3, now_str)
+                                
+                                st.success(f"✅ Success! {guest_name} checked in at {now_str}")
+                                st.balloons()
+                                st.rerun()
+                        else:
+                            st.error(f"❌ Error: '{guest_name}' is not on the guest list.")
                 else:
-                    st.error(f"❌ Error: '{guest_name}' is not on the guest list.")
-            else:
-                st.error("Error: 'Guest Name' column missing from sheet layout.")
+                    st.warning("🤖 Couldn't clear a sharp QR code reading. Try holding the ticket closer/steadier and try again!")
+            except Exception as e:
+                st.error(f"Camera tracking parsing issue: {e}")
 
         st.markdown("---")
 
@@ -191,7 +191,7 @@ if not is_guest_view:
         # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
         st.markdown("---")
         st.subheader("📩 Send Digital Invites")
-        st.write("Click below to automatically email confirmation links to all pending guests with valid emails:")
+        st.write("Click below to automatically email confirmation links to all pending guests:")
 
         if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
             try:
