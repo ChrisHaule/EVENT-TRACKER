@@ -207,6 +207,7 @@ if not df_guests.empty:
 else:
     st.warning("No guests found in the directory yet to generate tickets for.")
 
+
         # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
         st.markdown("---")
         st.subheader("📩 Send Digital Invites")
