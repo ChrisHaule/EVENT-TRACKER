@@ -186,53 +186,55 @@ if not is_guest_view:
 
         st.markdown("---")
 
-        # --- SECTION 3: GUEST LIST DIRECTORY ---
-        st.subheader("📋 Live Guest Directory")
-        st.dataframe(df_guests, use_container_width=True)
-st.markdown("---")
-st.subheader("🎫 Generate Guest QR Ticket")
-
-if 'df_guests' in locals() and not df_guests.empty:
-    guest_list = df_guests["Guest Name"].tolist()
-    selected_guest = st.selectbox("Select a guest to view their QR code ticket:", guest_list)
+# --- ONLY SHOW ADMIN CONTROLS IF NOT IN GUEST RSVP MODE ---
+if not (st.query_params.get("token") or st.query_params.get("guest")):
     
-    if selected_guest:
-        encoded_name = selected_guest.replace(" ", "%20")
-        qr_url = f"https://quickchart.io/qr?text={encoded_name}&size=300"
+    # --- SECTION 3: GUEST LIST DIRECTORY ---
+    st.subheader("📋 Live Guest Directory")
+    st.dataframe(df_guests, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("🎫 Generate Guest QR Ticket")
+
+    if 'df_guests' in locals() and not df_guests.empty:
+        guest_list = df_guests["Guest Name"].tolist()
+        selected_guest = st.selectbox("Select a guest to view their QR code ticket:", guest_list)
         
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.image(qr_url, caption=f"Scan Ticket for {selected_guest}", use_container_width=True)
-            st.info(f"💡 Tip: You can long-press the QR code to save it or send it to {selected_guest}!")
-elif 'df_guests' in locals():
-    st.warning("No guests found in the directory yet to generate tickets for.")
-
-
-
-# --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
-st.markdown("---")
-st.subheader("📩 Send Digital Invites")
-st.write("Click below to automatically email confirmation links to all pending guests:")
-
-if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
-    try:
-        sent_count = 0
-        for idx, row in df_guests.iterrows():
-            name = row.get("Guest Name")
-            email = row.get("Email")
-            confirmation = row.get("Confirmation")
+        if selected_guest:
+            encoded_name = selected_guest.replace(" ", "%20")
+            qr_url = f"https://quickchart.io/qr?text={encoded_name}&size=300"
             
-            if email and str(email).strip() != "" and str(email).lower() not in ["none", "nan"]:
-                is_pending = pd.isna(confirmation) or str(confirmation).strip() == "" or str(confirmation).lower() in ["none", "nan", "pending"]
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(qr_url, caption=f"Scan Ticket for {selected_guest}", use_container_width=True)
+                st.info(f"💡 Tip: You can long-press the QR code to save it or send it to {selected_guest}!")
+    elif 'df_guests' in locals():
+        st.warning("No guests found in the directory yet to generate tickets for.")
+
+    # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
+    st.markdown("---")
+    st.subheader("📩 Send Digital Invites")
+    st.write("Click below to automatically email confirmation links to all pending guests:")
+
+    if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
+        try:
+            sent_count = 0
+            for idx, row in df_guests.iterrows():
+                name = row.get("Guest Name")
+                email = row.get("Email")
+                confirmation = row.get("Confirmation")
                 
-                if is_pending:
-                    send_invite_email(name, str(email).strip())
-                    sent_count += 1
+                if email and str(email).strip() != "" and str(email).lower() not in ["none", "nan"]:
+                    is_pending = pd.isna(confirmation) or str(confirmation).strip() == "" or str(confirmation).lower() in ["none", "nan", "pending"]
                     
-        if sent_count > 0:
-            st.success(f"Successfully broadcasted {sent_count} invitations!")
-        else:
-            st.info("No pending guests found with an email address.")
-            
-    except Exception as e:
-        st.error(f"Failed to broadcast invites: {e}")
+                    if is_pending:
+                        send_invite_email(name, str(email).strip())
+                        sent_count += 1
+                        
+            if sent_count > 0:
+                st.success(f"Successfully broadcasted {sent_count} invitations!")
+            else:
+                st.info("No pending guests found with an email address.")
+                
+        except Exception as e:
+            st.error(f"Failed to broadcast invites: {e}")
