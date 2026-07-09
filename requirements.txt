@@ -2,3 +2,7 @@ streamlit
 qrcode
 streamlit-qrcode-scanner
 st-gsheets-connection
+streamlit
+pandas
+streamlit-gsheets
+streamlit-qrcode-scanner
