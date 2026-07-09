@@ -165,17 +165,18 @@ if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
         df_guests = conn.read(worksheet="Sheet1", ttl=0)
         df_guests.columns = df_guests.columns.str.strip()
         
-        # This will show us exactly what columns Python reads!
-        st.warning(f"Python sees these columns: {list(df_guests.columns)}")
-        
         sent_count = 0
         for idx, row in df_guests.iterrows():
             name = row.get("Guest Name")
             email = row.get("Email")
             confirmation = row.get("Confirmation")
             
-            if email and str(email).strip() != "" and str(email).lower() != "none":
-                if not confirmation or str(confirmation).strip() == "" or str(confirmation).lower() == "none":
+            # Check if a valid email is present
+            if email and str(email).strip() != "" and str(email).lower() not in ["none", "nan"]:
+                # Catch empty text, missing values, or python 'nan' markers
+                is_pending = pd.isna(confirmation) or str(confirmation).strip() == "" or str(confirmation).lower() in ["none", "nan"]
+                
+                if is_pending:
                     send_invite_email(name, str(email).strip())
                     sent_count += 1
                 
