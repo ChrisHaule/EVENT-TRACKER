@@ -14,10 +14,10 @@ def send_invite_email(guest_name, guest_email):
     sender = st.secrets["email"]["sender_email"]
     password = st.secrets["email"]["sender_password"]
     
-    app_url = "https://chris-haule-event-tracker-app-r-daktxpqmmyvhlv5qsiarxi.streamlit.app"
-    yes_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=yes"
-    no_url = f"{app_url}/?guest={guest_name.replace(' ', '%20')}&action=no"
-    
+      app_url = st.secrets["email"]["base_url"]
+  yes_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=yes"
+  no_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=no"
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Exclusive Invitation for {guest_name}"
     msg["From"] = f"Event Management <{sender}>"
