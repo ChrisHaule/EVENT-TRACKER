@@ -208,12 +208,12 @@ else:
     st.warning("No guests found in the directory yet to generate tickets for.")
 
 
-        # --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
-        st.markdown("---")
-        st.subheader("📩 Send Digital Invites")
-        st.write("Click below to automatically email confirmation links to all pending guests:")
+# --- SECTION 4: MAIN INTERFACE BUTTON PANEL ---
+st.markdown("---")
+st.subheader("📩 Send Digital Invites")
+st.write("Click below to automatically email confirmation links to all pending guests:")
 
-        if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
+if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
             try:
                 sent_count = 0
                 for idx, row in df_guests.iterrows():
