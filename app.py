@@ -11,13 +11,11 @@ from email.mime.multipart import MIMEMultipart
 st.set_page_config(page_title="Event Management System", layout="centered")
 
 def send_invite_email(guest_name, guest_email):
-        sender = st.secrets["email"]["sender_email"]
+    sender = st.secrets["email"]["sender_email"]
     password = st.secrets["email"]["sender_password"]
-
     app_url = st.secrets["email"]["base_url"]
     yes_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=yes"
     no_url = f"{app_url}?guest={guest_name.replace(' ', '%20')}&action=no"
-
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Exclusive Invitation for {guest_name}"
