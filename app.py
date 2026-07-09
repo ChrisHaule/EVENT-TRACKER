@@ -214,24 +214,24 @@ st.subheader("📩 Send Digital Invites")
 st.write("Click below to automatically email confirmation links to all pending guests:")
 
 if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
-            try:
-                sent_count = 0
-                for idx, row in df_guests.iterrows():
-                    name = row.get("Guest Name")
-                    email = row.get("Email")
-                    confirmation = row.get("Confirmation")
+    try:
+        sent_count = 0
+        for idx, row in df_guests.iterrows():
+            name = row.get("Guest Name")
+            email = row.get("Email")
+            confirmation = row.get("Confirmation")
+            
+            if email and str(email).strip() != "" and str(email).lower() not in ["none", "nan"]:
+                is_pending = pd.isna(confirmation) or str(confirmation).strip() == "" or str(confirmation).lower() in ["none", "nan", "pending"]
+                
+                if is_pending:
+                    send_invite_email(name, str(email).strip())
+                    sent_count += 1
                     
-                    if email and str(email).strip() != "" and str(email).lower() not in ["none", "nan"]:
-                        is_pending = pd.isna(confirmation) or str(confirmation).strip() == "" or str(confirmation).lower() in ["none", "nan"]
-                        
-                        if is_pending:
-                            send_invite_email(name, str(email).strip())
-                            sent_count += 1
-                        
-                if sent_count > 0:
-                    st.success(f"Successfully broadcasted {sent_count} invitations!")
-                else:
-                    st.info("No pending guests found with an email address.")
-                    
-            except Exception as e:
-                st.error(f"Failed to broadcast invites: {e}")
+        if sent_count > 0:
+            st.success(f"Successfully broadcasted {sent_count} invitations!")
+        else:
+            st.info("No pending guests found with an email address.")
+            
+    except Exception as e:
+        st.error(f"Failed to broadcast invites: {e}")
