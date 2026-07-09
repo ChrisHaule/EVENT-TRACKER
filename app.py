@@ -12,6 +12,34 @@ st.title("🎉 CHRIS EVENTS AND WEDDINGS MANAGEMENT")
 
 # Establish connection to your Google Sheet database
 conn = st.connection("gsheets", type=GSheetsConnection)
+# --- HANDLE INBOUND GUEST CONFIRMATIONS ---
+query_params = st.query_params
+
+if "guest" in query_params and "action" in query_params:
+    guest_name = query_params["guest"]
+    action_choice = query_params["action"]
+    status_text = "Attending" if action_choice == "yes" else "Declined"
+    
+    try:
+        df = conn.read(worksheet="Sheet1", ttl=0)
+        
+        if "Guest Name" in df.columns:
+            matched_rows = df[df["Guest Name"] == guest_name]
+            if not matched_rows.empty:
+                row_idx = matched_rows.index[0]
+                client = conn.client
+                client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet_id"]).sheet1.update_cell(row_idx + 2, 5, status_text)
+                
+                if action_choice == "yes":
+                    st.success(f"🎉 Thank you, {guest_name}! Your response has been recorded as **Attending**.")
+                else:
+                    st.info(f"✉️ Thank you, {guest_name}. Your response has been recorded as **Declined**.")
+                
+                st.rerun()
+            else:
+                st.error("Guest name not found in sheet records.")
+    except Exception as e:
+        st.error(f"Error logging response automatically: {e}")
 
 # Read the latest spreadsheet data live
 @st.fragment
@@ -82,3 +110,75 @@ if not df_guests.empty:
         st.download_button(label="Download QR Ticket", data=byte_im, file_name=f"{selected_guest}_ticket.png", mime="image/png")
 else:
     st.write("No guests found in your Google Sheet.")
+# --- EMAIL SENDER FUNCTION ---
+def send_invite_email(guest_name, guest_email):
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    sender = st.secrets["email"]["sender_email"]
+    password = st.secrets["email"]["app_password"]
+    base_url = st.secrets["email"]["base_url"]
+    
+    yes_url = f"{base_url}/?guest={guest_name}&action=yes"
+    no_url = f"{base_url}/?guest={guest_name}&action=no"
+    
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Exclusive Invitation for {guest_name}"
+    msg["From"] = f"Event Management <{sender}>"
+    msg["To"] = guest_email
+    
+    text = f"Hello {guest_name},\n\nYou are cordially invited! Confirm attendance:\n\nI'm Coming: {yes_url}\nCan't Make It: {no_url}"
+    
+    html = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333;">
+        <h2 style="color: #2E4053;">Hello {guest_name},</h2>
+        <p>You are cordially invited to our event. Please let us know if you will be joining us by choosing an option below:</p>
+        <br>
+        <p>
+          <a href="{yes_url}" style="background-color: #27AE60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 15px;">👍 I'm Coming</a>
+          <a href="{no_url}" style="background-color: #E74C3C; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">👎 Can't Make It</a>
+        </p>
+        <br>
+        <p>We look forward to hearing from you!</p>
+        <hr style="border: 0; border-top: 1px solid #EEEEEE;">
+        <p style="font-size: 12px; color: #777777;">Sent via Event Management System.</p>
+      </body>
+    </html>
+    """
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
+    
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender, password)
+        server.sendmail(sender, guest_email, msg.as_string())
+
+
+# --- MAIN INTERFACE BUTTON PANEL ---
+st.markdown("---")
+st.subheader("📩 Send Digital Invites")
+st.write("Click below to automatically email confirmation links to all pending guests with valid emails:")
+
+if st.button("🚀 Blast Invites to All Guests", use_container_width=True):
+    try:
+        df_guests = conn.read(worksheet="Sheet1", ttl=0)
+        sent_count = 0
+        
+        for idx, row in df_guests.iterrows():
+            name = row.get("Guest Name")
+            email = row.get("Email")
+            confirmation = row.get("Confirmation")
+            
+            if email and str(email).strip() != "" and str(email).lower() != "none":
+                if not confirmation or str(confirmation).strip() == "" or str(confirmation).lower() == "none":
+                    send_invite_email(name, email)
+                    sent_count += 1
+                
+        if sent_count > 0:
+            st.success(f"Successfully broadcasted {sent_count} invitations!")
+        else:
+            st.info("No pending guests found with an email address.")
+            
+    except Exception as e:
+        st.error(f"Failed to broadcast invites: {e}")
